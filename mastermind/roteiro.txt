@@ -1,0 +1,559 @@
+Exemplo: Mastermind
+http://www.ojogos.pt/jogo/Mooble.html
+
+----------------------------------------------
+Capítulo 2 - Describing Features with Cucumber
+----------------------------------------------
+
+1. Cria a estrutura do projeto
+- bin
+- features
+	- step_definitions
+	- support
+- lib
+	- mastermind
+- spec
+	- mastermind
+
+2. Cria a funcionalidade: jogador_inicia_jogo.feature
+# language: pt
+Funcionalidade: Jogador inicia jogo
+	Como um Jogador
+	Quero iniciar um Jogo
+	Para descobrir o código
+	
+	Cenário: Iniciar jogo
+		Dado que ainda não estou jogando
+		Quando inicio um novo jogo
+		Então o jogo diz "Seja Bem Vindo ao Mastermind!"
+			E o jogo diz "Informe o código: "
+			
+3. Executa e mostra o resultado
+	1 scenario (1 undefined)
+	4 steps (4 undefined)
+
+4. Implementa o primeiro passo no arquivo mastermind.rb
+Dado /^que ainda não estou jogando$/ do
+end
+
+5. Executa e mostra o resultado:
+	1 scenario (1 undefined)
+	4 steps (3 undefined, 1 passed)
+
+6. Implementa o segundo passo no arquivo mastermind.rb
+Quando /^inicio um novo jogo$/ do
+  Mastermind::Game.new.start
+end
+
+7. Implementa os demais passos e refatora
+Quando /^inicio um novo jogo$/ do
+	@game = Mastermind::Game.new
+	@message = game.start
+end
+
+Entao /^o jogo diz "([^\"]*)"$/ do |message|
+	@message.should == message
+end
+
+8. Explica que por ser duas mensagens deve-se usar um array
+Então /^o jogo diz "([^\"]*)"$/ do |message|
+	@messages.should include(message)
+end
+
+9. Implementa o arquivo executável bin/mastermind
+#!/usr/bin/env ruby
+$LOAD_PATH.push File.join(File.dirname(__FILE__), "/../lib") 
+require 'mastermind'
+
+game = Mastermind::Game.new 
+messages = game.start 
+messages.each { puts message }
+
+10. Explica o conceito de Single Responsability Principle e refatora:
+#!/usr/bin/env ruby
+$LOAD_PATH.push File.join(File.dirname(__FILE__), "/../lib") 
+require 'mastermind'
+
+game = Mastermind::Game.new(STDOUT) 
+game.start
+
+11. Refatora os steps (mastermind.rb) para
+Quando /^inicio um novo jogo$/ do
+  @messenger = StringIO.new 
+  game = Mastermind::Game.new(@messenger) 
+  game.start
+end
+
+Entao /^o jogo diz "([^\"]*)"$/ do |message|
+  @messenger.string.split("\n").should include(message)
+end
+
+
+---------------------------------------
+Capítulo 3 - Describing Code with RSpec
+---------------------------------------
+
+1. Criar a spec: spec/mastermind/game_spec.rb
+module Mastermind 
+  describe Game do 
+    
+  end
+end
+
+2. Criar a classe: lib/mastermind/game.rb
+module Mastermind 
+  class Game 
+  
+  end
+end
+
+3. Criar o arquivo: lib/mastermind.rb
+require 'mastermind/game'
+
+4. Criar o arquivo: spec/spec_helper.rb
+$: << File.join(File.dirname(__FILE__), "/../lib") 
+require 'spec' 
+require 'mastermind'
+
+5. Refatorar o arquivo: spec/mastermind/game_spec.rb
+require File.join(File.dirname(__FILE__), "/../spec_helper")
+
+module Mastermind 
+  describe Game do 
+    
+  end
+end
+
+6. Executar: spec spec/mastermind/game_spec.rb
+	0 examples, 0 failures
+
+7. Criar o arquivo: features/support/env.rb
+$: << File.join(File.dirname(__FILE__), "/../../lib")
+require 'mastermind'
+
+8. Executar: cucumber
+	1 scenario (1 failed)
+	4 steps (1 failed, 2 skipped, 1 passed)
+
+9. Refatorar o arquivo game_spec.rb
+context "iniciando" do 
+  it "deve dar mensagem de boas vindas" do
+    messenger.should_receive(:puts).with("Seja Bem Vindo ao Mastermind!")
+    game.start
+  end 
+end
+
+10. Executar spec spec/mastermind/game_spec.rb
+	1 example, 1 failure
+
+11. Criar um mock para a variável message
+it "deve dar mensagem de boas vindas" do
+	messenger = mock("messenger")
+	game = Game.new(messenger)
+	messenger.should_receive(:puts).with("Seja Bem Vindo ao Mastermind!")
+	game.start
+end 
+
+12. Declarar o construtor da classe Game
+def initialize(messenger)
+end
+
+13. Declarar o método start da classe Game
+def start
+end
+
+14. Implementar o corpo dos métodos
+def initialize(messenger)
+  @messenger = messenger
+end
+
+def start
+  @messenger.puts "Seja Bem Vindo ao Mastermind!"
+end
+
+15. Executar spec spec/mastermind/game_spec.rb
+1 example, 0 failures
+
+16. Implementar o outro exemplo: 
+it "deve solicitar o código" do 
+  messenger = mock("messenger")
+  game = Game.new(messenger) 
+  messenger.should_receive(:puts).with("Informe o código: ") 
+  game.start
+end
+
+17. Executar spec spec/mastermind/game_spec.rb
+2 examples, 1 failure
+
+18. Alterar o método start incluindo a outra mensagem
+def start
+  @messenger.puts "Seja Bem Vindo ao Mastermind!"
+  @messenger.puts "Informe o código: "
+end
+
+19. Refatorar o game_spec usando "as_null_object"
+it "deve dar mensagem de boas vindas" do
+  messenger = mock("messenger").as_null_object
+  game = Game.new(messenger)
+  messenger.should_receive(:puts).with("Seja Bem Vindo ao Mastermind!")
+  game.start
+end 
+
+it "deve solicitar o código" do 
+  messenger = mock("messenger").as_null_object
+  game = Game.new(messenger) 
+  messenger.should_receive(:puts).with("Informe o código: ") 
+  game.start
+end
+
+20. Executar spec spec/mastermind/game_spec.rb
+2 examples, 0 failures
+
+21. Remover duplicações
+context "iniciando jogo" do 
+	before(:each) do
+		@messenger = mock("messenger").as_null_object
+		@game = Game.new(@messenger) 
+	end
+
+	it "deve dar mensagem de boas vindas" do
+		@messenger.should_receive(:puts).with("Seja Bem Vindo ao Mastermind!")
+		@game.start
+	end 
+
+	it "deve solicitar o código" do 
+		@messenger.should_receive(:puts).with("Informe o código: ") 
+		@game.start
+	end
+end
+
+22. Rodar: cucubmer
+1 scenario (1 passed)
+4 steps (4 passed)
+
+
+================================
+Capítulo 4 - Adding New Features
+================================
+
+1. Criar arquivo jogador_tentativa.feature
+Feature: Jogador faz tentativa
+	O jogador faz uma tentativa de quatro cores. O jogo marca a tentativa com cores branco ou preto.
+	Para cada resposta correta para a cor e posição é mostrada a cor preta (black). 
+	Para cada resposta correta para cor mas não para posição, é mostrada a cor branca (white).
+	
+	Cenário: todas as cores e posições corretas
+		Dado que o código é "r g c y"
+		Quando eu tento "r g c y"
+		Então a resposta deve ser "bbbb"
+		
+	Cenário: todas as cores corretas mas somente duas posições corretas
+		Dado que o código é "r g c y"
+		Quanto eu tento "r g y c"
+		Então a resposta deve ser "bbww"
+		
+2. Mostrar o uso de Scenario Outlines (Esquema do Cenário)
+# language: pt
+Feature: Jogador faz tentativa
+	O jogador faz uma tentativa de quatro cores. O jogo marca a tentativa com cores branco ou preto.
+	Para cada resposta correta para a cor e posição é mostrada a cor preta (black). 
+	Para cada resposta correta para cor mas não para posição, é mostrada a cor branca (white).
+	
+	Esquema do Cenário: fazer tentativa
+		Dado que o código é <código>
+		Quando eu tento <tentativa>
+		Então a resposta deve ser <resposta>
+
+		Exemplos: todas as cores corretas
+				    | código  | tentativa | resposta |
+				    | r g y c | r g y c   | bbbb     |
+				    | r g y c | r g c y   | bbww     |
+				    | r g y c | y r g c   | bwww     |
+				    | r g y c | c r g y   | wwww     |
+
+		Exemplos: 3 cores corretas
+		    | código  | tentativa | resposta |
+			| r g y c | w g y c   | bbb      |
+			| r g y c | w r y c   | bbw      |
+			| r g y c | w r g c   | bww      |
+			| r g y c | w r g y   | www      |
+
+		Exemplos: 2 cores corretas
+		    | código  | tentativa | resposta |
+			| r g y c | w g w c   | bb       |
+			| r g y c | w r w c   | bw       |
+			| r g y c | g w c w   | ww       |
+
+		Exemplos: 1 cor correta
+		    | código  | tentativa | resposta |
+			| r g y c | r w w w   | b        |
+			| r g y c | w w r w   | w        |
+			
+3. Implementar o primeiro passo no arquivo features/step_definitions/mastermind.rb
+Dado /^que o código é (. . . .)$/ do |codigo|
+  @messenger = StringIO.new 
+  game = Mastermind::Game.new(@messenger) 
+  game.start(codigo.split)
+end
+
+4. Criar nova spec para o método start recebendo o código
+it "deve dar mensagem de boas vindas (passando o código)" do
+  @messenger.should_receive(:puts).with("Seja Bem Vindo ao Mastermind!")
+  @game.start(%w[r g y c])
+end
+
+5. Refatorar método start na classe Game para receber (opcionalmente) o código
+def start(codigo = nil)
+  @messenger.puts "Seja Bem Vindo ao Mastermind!"
+  @messenger.puts "Informe o código: "
+end
+
+6. Rodar spec spec/mastermind/game_spec.rb
+	3 examples, 0 failures
+
+7. Deixar código obrigatório
+def start(codigo)
+  @messenger.puts "Seja Bem Vindo ao Mastermind!"
+  @messenger.puts "Informe o código: "
+end
+
+8. Remover métodos desnecessários
+describe Game do 
+context "iniciando jogo" do 
+  before(:each) do
+    @messenger = mock("messenger").as_null_object
+    @game = Game.new(@messenger) 
+  end
+  
+  it "deve dar mensagem de boas vindas" do
+    @messenger.should_receive(:puts).with("Seja Bem Vindo ao Mastermind!")
+    @game.start(%w[r g y c])
+  end
+  
+  it "deve solicitar o código" do 
+    @messenger.should_receive(:puts).with("Informe o código: ") 
+    @game.start(%w[r c g y])
+  end
+end  
+end
+
+9. Implementar o segundo passo
+Dado /^que o código é (. . . .)$/ do |codigo|
+  @messenger = StringIO.new 
+  @game = Mastermind::Game.new(@messenger) 
+  @game.start(codigo.split)
+end
+
+Quando /^eu tento (. . . .)$/ do |codigo|
+  @game.guess(codigo.split)
+end
+
+10. Criar o spec do método guess
+it "deve haver um método guess" do 
+  game = Game.new 
+  game.guess(%w[r y c g])
+end
+
+11. Criar o método guess
+def guess(codigo)
+end
+
+12. Rodar cucumber features/jogador_faz_tentativa.feature 
+	13 scenarios (13 undefined)
+	39 steps (13 undefined, 26 passed)
+
+13. Implementar o último passo
+Entao /^a resposta deve ser (.*)$/ do |resposta|
+  @messenger.string.split("\n").should include(resposta)
+end
+
+14. Criar o spec para o novo cenário
+describe Game do 
+context "iniciando jogo" do 
+  before(:each) do
+    @messenger = mock("messenger").as_null_object
+    @game = Game.new(@messenger) 
+  end
+  
+  it "deve dar mensagem de boas vindas" do
+    @messenger.should_receive(:puts).with("Seja Bem Vindo ao Mastermind!")
+    @game.start(%w[r g y c])
+  end
+  
+  it "deve solicitar o código" do 
+    @messenger.should_receive(:puts).with("Informe o código: ") 
+    @game.start(%w[r c g y])
+  end
+end  
+
+context "fazendo tentativa" do
+  context "com 4 cores corretas nos lugares corretos" do
+    it "deve responder bbbb" do
+      messenger = mock("messenger").as_null_object 
+      game = Game.new(messenger) 
+      game.start(%w[r g y c])
+      messenger.should_receive(:puts).with("bbbb")
+      game.guess(%w[r g y c])
+    end
+  end
+end
+
+end
+
+15. Implementar método guess da forma mais simples possível
+def guess(codigo)
+  @messenger.puts "bbbb"
+end
+
+16. Implementar um novo contexto (4 cores certas, 2 lugares certos)
+context "com 4 corres corretas com 2 lugares corretos" do 
+  it "deve responder bbww" do
+    messenger = mock("messenger").as_null_object 
+    game = Game.new(messenger) 
+    game.start(%w[r g y c])
+    messenger.should_receive(:puts).with("bbww" )
+    game.guess(%w[r g c y])
+  end 
+end
+
+17. Refatorar a classe Game para atender o novo requisito
+def start(codigo)
+@codigo = codigo
+@messenger.puts "Seja Bem Vindo ao Mastermind!"
+@messenger.puts "Informe o código: "
+end
+
+def guess(tentativa)
+result = "" 
+tentativa.each_with_index do |peg, index|
+if @codigo[index] == peg 
+  result << "b"
+elsif @codigo.include?(peg) 
+  result << "w"
+end 
+end
+@messenger.puts result
+end
+
+18. Implementar um novo contexto (4 cores certas, 1 lugar certo)
+context "com 4 corres corretas com 1 lugar correto" do 
+it "deve responder bwww" do
+messenger = mock("messenger").as_null_object 
+game = Game.new(messenger) 
+game.start(%w[r g y c])
+messenger.should_receive(:puts).with("bwww" )
+game.guess(%w[y r g c])
+end 
+end
+
+19. Refatorar o método guess para atender o novo requisito
+def guess(tentativa)
+result = []
+tentativa.each_with_index do |peg, index|
+if @codigo[index] == peg 
+  result << "b"
+elsif @codigo.include?(peg) 
+  result << "w"
+end 
+end
+@messenger.puts result.sort.join
+end
+
+20. OK! Agora tudo roda
+	13 scenarios (13 passed)
+	39 steps (39 passed)
+
+21. Refatorar a implementação dos passos
+def messenger 
+  @messenger ||= StringIO.new
+end
+
+def game 
+  @game ||= Mastermind::Game.new(messenger)
+end
+
+def messages_should_include(message) 
+  messenger.string.split("\n").should include(message)
+end
+
+Dado /^que ainda não estou jogando$/ do
+end
+
+Quando /^inicio um novo jogo$/ do
+  game.start(%w[r g y c])
+end
+
+Entao /^o jogo diz "([^\"]*)"$/ do |message|
+  messenger.string.split("\n").should include(message)
+end
+
+Dado /^que o código é (. . . .)$/ do |codigo|
+  game.start(codigo.split)
+end
+
+Quando /^eu tento (. . . .)$/ do |codigo|
+  game.guess(codigo.split)
+end
+
+Entao /^a resposta deve ser (.*)$/ do |resposta|
+  messages_should_include(resposta)
+end
+
+22. Rodar novamente
+	14 scenarios (14 passed)
+	43 steps (43 passed)
+
+23. Refatorar os exemplos (spec)
+describe Game do 
+
+before(:each) do
+  @messenger = mock("messenger").as_null_object
+  @game = Game.new(@messenger) 
+end
+
+context "iniciando jogo" do       
+  it "deve dar mensagem de boas vindas" do
+    @messenger.should_receive(:puts).with("Seja Bem Vindo ao Mastermind!")
+    @game.start(%w[r g y c])
+  end
+  
+  it "deve solicitar o código" do 
+    @messenger.should_receive(:puts).with("Informe o código: ") 
+    @game.start(%w[r c g y])
+  end
+end  
+
+context "fazendo tentativa" do
+  context "com 4 cores corretas nos lugares corretos" do
+    it "deve responder bbbb" do
+      @game.start(%w[r g y c])
+      @messenger.should_receive(:puts).with("bbbb")
+      @game.guess(%w[r g y c])
+    end
+  end
+  
+  context "com 4 corres corretas com 2 lugares corretos" do 
+    it "deve responder bbww" do
+      @game.start(%w[r g y c])
+      @messenger.should_receive(:puts).with("bbww" )
+      @game.guess(%w[r g c y])
+    end 
+  end
+  
+  context "com 4 corres corretas com 1 lugar correto" do 
+    it "deve responder bwww" do
+      @game.start(%w[r g y c])
+      @messenger.should_receive(:puts).with("bwww" )
+      @game.guess(%w[y r g c])
+    end 
+  end
+end
+
+end
+
+24. Alterar script para fazer testes exploratórios
+#!/usr/bin/env ruby
+$LOAD_PATH.push File.join(File.dirname(__FILE__), "/../lib") require 'mastermind'
+game = Mastermind::Game.new(STDOUT) game.start(%w[r g y c]) while guess = gets
+game.guess guess.split
+end
